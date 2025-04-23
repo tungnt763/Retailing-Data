@@ -1,0 +1,10 @@
+check_kafka.py
+consumer.py
+producer.py
+create_topic.py
+test_data.ipynb
+.cache.sqlite
+/logs/
+.ipynb_checkpoints/
+.env
+/data/
