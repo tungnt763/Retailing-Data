@@ -5,6 +5,7 @@ import sys
 from datetime import datetime
 from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.types import StringType
+from pyspark.sql.functions import lit
 
 # ----- 1. ENVIRONMENT SETUP -----
 MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000')
@@ -19,6 +20,7 @@ PG_USER = os.getenv("PG_USER", "postgres")
 PG_PWD = os.getenv("PG_PASSWORD", "postgres")
 
 RUN_ID = os.getenv("RUN_ID", "manual")
+TASK_ID = os.getenv("TASK_ID", "manual_task")  # Lấy từ Airflow context nếu có
 
 HOME = os.getenv("AIRFLOW_HOME", "/opt/airflow")
 metadata_path = os.path.join(HOME, "config", "metadata.json")
@@ -47,13 +49,13 @@ def extract_source_created_at(dirname, file_prefix):
     return None
 
 def audit_log_to_postgres(log_dict):
+    # Chuyển đổi các trường thời gian sang datetime
     for col in ["dest_created_at", "source_created_at"]:
         if log_dict.get(col) and isinstance(log_dict[col], str):
             try:
                 log_dict[col] = datetime.strptime(log_dict[col], "%Y-%m-%d %H:%M:%S")
             except Exception:
                 log_dict[col] = None
-
     log_df = spark.createDataFrame([log_dict])
     log_df.write.format("jdbc") \
         .option("url", f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}") \
@@ -71,7 +73,6 @@ for tbl in metadata["tables"]:
     file_prefix = tbl['file_name']
     table_name = tbl['table_name']
 
-    # Read ALL part files inside ALL batch folders for this table
     pattern = f"s3a://{MINIO_CLEAN_BUCKET}/{file_prefix}_*/"
     print(f"🔎 Loading pattern: {pattern}")
     try:
@@ -80,7 +81,7 @@ for tbl in metadata["tables"]:
             print(f"No data found for {file_prefix}, skipping...")
             continue
 
-        # Read audit table: get list of already loaded batches (by batch folder name)
+        # Đọc audit để kiểm tra batch đã load chưa
         try:
             audit_df = spark.read.format("jdbc") \
                 .option("url", f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}") \
@@ -92,9 +93,9 @@ for tbl in metadata["tables"]:
             loaded_batches = set(audit_df.filter(F.col("dest_name") == table_name)
                 .select("source_name").rdd.flatMap(lambda x: x).collect())
         except Exception:
-            loaded_batches = set()  # Audit table might not exist yet!
+            loaded_batches = set()
 
-        # Tag rows with input file path, extract batch_dir from that path
+        # Tag thêm batch_dir và input file name
         df_with_file = df.withColumn("_input_file_name", F.input_file_name())
         df_with_file = df_with_file.withColumn(
             "batch_dir",
@@ -110,13 +111,15 @@ for tbl in metadata["tables"]:
                 continue
             batch_df = df_with_file.filter(F.col("batch_dir") == batch).drop("_input_file_name", "batch_dir")
             start_time = datetime.now()
+            source_created_at = extract_source_created_at(batch, file_prefix)
+            created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             log = {
                 "run_id": RUN_ID,
                 "source_system": "minio",
                 "dest_system": "postgres",
                 "source_name": batch,
                 "dest_name": table_name,
-                "source_created_at": extract_source_created_at(batch, file_prefix),
+                "source_created_at": source_created_at,
                 "dest_created_at": None,
                 "duration": None,
                 "record_count": None,
@@ -125,9 +128,20 @@ for tbl in metadata["tables"]:
                 "load_type": "append"
             }
             try:
+                # Cast all columns to string
                 batch_df_str = cast_all_columns_to_string(batch_df)
                 record_count = batch_df_str.count()
                 log["record_count"] = record_count
+
+                # Bổ sung các cột kiểm soát (control/monitor)
+                batch_df_str = (
+                    batch_df_str
+                    .withColumn("created_at", lit(created_at))
+                    .withColumn("batch_id", lit(batch))
+                    .withColumn("run_id", lit(RUN_ID))
+                    .withColumn("task_id", lit(TASK_ID))
+                )
+
                 batch_df_str.write.format("jdbc") \
                     .option("url", f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}") \
                     .option("dbtable", f'{pg_schema}."{table_name}"') \
@@ -136,6 +150,7 @@ for tbl in metadata["tables"]:
                     .option("driver", "org.postgresql.Driver") \
                     .mode("append") \
                     .save()
+
                 log["status"] = "success"
                 log["message"] = f"Loaded {batch} to {table_name} successfully."
             except Exception as e:

@@ -1,6 +1,6 @@
-TRUNCATE TABLE stg.customers;
-TRUNCATE TABLE stg.discounts;
-TRUNCATE TABLE stg.employees;
-TRUNCATE TABLE stg.products;
-TRUNCATE TABLE stg.stores;
-TRUNCATE TABLE stg.transactions;
+DROP TABLE stg.customers;
+DROP TABLE stg.discounts;
+DROP TABLE stg.employees;
+DROP TABLE stg.products;
+DROP TABLE stg.stores;
+DROP TABLE stg.transactions;

@@ -37,6 +37,7 @@ def dag_load_data_minio_postgres():
         task_id="load_cleaned_bucket_to_postgres",
         bash_command=(
             f'export RUN_ID="{{{{ ti.run_id }}}}"; '
+            f'export TASK_ID="{{{{ ti.dag_id }}}}.{{{{ ti.task_id }}}}"; '
             f'{SPARK_HOME}/bin/spark-submit --master spark://spark-master:7077 '
             f'--jars {SPARK_HOME}/jars/postgresql-42.2.23.jar '
             f'{HOME}/dags/load_data/load_data_minio_postgres.py'
