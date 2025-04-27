@@ -1,8 +1,25 @@
 {
+    "layers": [
+        {
+            "name": "staging",
+            "short_name": "stg",
+            "description": "Staging layer for raw data ingestion"
+        },
+        {
+            "name": "transform",
+            "short_name": "trf",
+            "description": "Tranform data layer"
+        },
+        {
+            "name": "data_warehouse",
+            "short_name": "dwh",
+            "description": "Data warehouse layer"
+        }
+    ], 
     "tables": [
       {
         "file_name": "customers",
-        "table_name": "dim_customers",
+        "table_name": "customers",
         "primary_key": ["cust_id"],
         "fields": {
           "cust_id": {
@@ -72,7 +89,7 @@
       },
       {
         "file_name": "discounts",
-        "table_name": "dim_discounts",
+        "table_name": "discounts",
         "primary_key": ["disc_id"],
         "fields": {
           "disc_start_date": {
@@ -128,7 +145,7 @@
       },
       {
         "file_name": "employees",
-        "table_name": "dim_employees",
+        "table_name": "employees",
         "primary_key": ["emp_id"],
         "fields": {
           "emp_id": {
@@ -143,7 +160,7 @@
             "type": "string",
             "not_null": true,
             "foreign_key": {
-              "table": "dim_stores",
+              "table": "stores",
               "field": "store_id"
             },
             "example": "1"
@@ -164,7 +181,7 @@
       },
       {
         "file_name": "products",
-        "table_name": "dim_products",
+        "table_name": "products",
         "primary_key": ["prod_id"],
         "fields": {
           "prod_id": {
@@ -200,7 +217,7 @@
       },
       {
         "file_name": "stores",
-        "table_name": "dim_stores",
+        "table_name": "stores",
         "primary_key": ["store_id"],
         "fields": {
           "store_id": {
@@ -263,7 +280,7 @@
       },
       {
         "file_name": "transactions",
-        "table_name": "fact_transactions",
+        "table_name": "transactions",
         "primary_key": ["trans_id"],
         "fields": {
           "trans_id": {
@@ -285,7 +302,7 @@
             "type": "string",
             "not_null": true,
             "foreign_key": {
-              "table": "dim_customers",
+              "table": "customers",
               "field": "cust_id"
             },
             "example": "47162"
@@ -295,7 +312,7 @@
             "type": "string",
             "not_null": true,
             "foreign_key": {
-              "table": "dim_products",
+              "table": "products",
               "field": "prod_id"
             }
           },
@@ -348,7 +365,7 @@
             "type": "string",
             "not_null": true,
             "foreign_key": {
-              "table": "dim_stores",
+              "table": "stores",
               "field": "store_id"
             }
           },
@@ -357,7 +374,7 @@
             "type": "string",
             "not_null": false,
             "foreign_key": {
-              "table": "dim_employees",
+              "table": "employees",
               "field": "emp_id"
             }
           },

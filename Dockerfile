@@ -22,6 +22,9 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
 RUN wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.1/hadoop-aws-3.3.1.jar -P /opt/spark/jars/ && \
     wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.1026/aws-java-sdk-bundle-1.11.1026.jar -P /opt/spark/jars/
 
+RUN wget https://jdbc.postgresql.org/download/postgresql-42.2.23.jar -P /opt/spark/jars/
+
+
 ENV PATH="${SPARK_HOME}/bin:${PATH}"
 ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
 
@@ -33,4 +36,5 @@ RUN pip install --upgrade pip && \
         apache-airflow-providers-mongo==3.5.0 \
         airflow-provider-great-expectations==0.2.7 \
         pyspark==3.5.5 \
-        apache-airflow-providers-apache-spark
+        apache-airflow-providers-apache-spark  \
+        psycopg2-binary

@@ -48,3 +48,42 @@ def upload_to_minio(file_path, bucket_name, key=None):
         minio_client.make_bucket(bucket_name)
     minio_client.fput_object(bucket_name, key, file_path)
     print(f"Uploaded {file_path} to bucket {bucket_name} as key {key}")
+
+def create_minio_client():
+    """
+    Creates a MinIO client instance.
+
+    Returns:
+        Minio: A MinIO client instance.
+    """
+    from minio import Minio
+    import os
+
+    return Minio(
+        os.getenv('MINIO_ENDPOINT', 'minio:9000'),
+        access_key=os.getenv('MINIO_ACCESS_KEY', 'minio'),
+        secret_key=os.getenv('MINIO_SECRET_KEY', 'minio123'),
+        secure=False
+    )
+
+def read_metadata():
+    """
+    Reads metadata from a JSON file.
+
+    Args:
+        metadata_path (str): Path to the metadata JSON file.
+
+    Returns:
+        dict: Parsed metadata.
+    """
+    import json
+    import os
+    HOME = os.getenv("AIRFLOW_HOME", "/opt/airflow")
+    metadata_path = os.path.join(HOME, "config", "metadata.json")
+    
+    if not os.path.exists(metadata_path):
+        raise FileNotFoundError(f"Metadata file not found at {metadata_path}")
+
+    with open(metadata_path, 'r') as f:
+        return json.load(f)
+

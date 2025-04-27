@@ -1,11 +1,12 @@
 from airflow.decorators import dag, task
 from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.operators.bash import BashOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datetime import datetime, timedelta
 import os
 from minio import Minio
 from minio.commonconfig import CopySource
-
+from lib.utils import create_minio_client
 
 default_args = {
     'owner': 'tungnt763',
@@ -20,16 +21,8 @@ HOME = os.getenv("AIRFLOW_HOME", "/opt/airflow")
 SPARK_HOME = os.getenv("SPARK_HOME", "/opt/spark")
 BUCKET_NAME = os.getenv('MINIO_BUCKET_RAW', "raw")
 ARCHIVED_FOLDER = "archived/"
-MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000')
-MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', "minio")
-MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', "minio123")
 
-minio_client = Minio(
-    MINIO_ENDPOINT,  # Use 'localhost:9000' or correct Docker hostname
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=False
-)
+minio_client = create_minio_client()
 
 @dag(
     default_args=default_args,
@@ -39,15 +32,6 @@ minio_client = Minio(
     catchup=False,
 )
 def dag_check_quality_normalize_data_before():
-    # Wait for the successful completion of dag_extract_data.py
-    # wait_for_extract_data = ExternalTaskSensor(
-    #     task_id='wait_for_extract_data',
-    #     external_dag_id='dag_extract_data',
-    #     external_task_id=None,  # Wait for the entire DAG to complete
-    #     mode='poke',
-    #     timeout=600,
-    #     poke_interval=30,
-    # )
 
     @task
     def check_new_files():
@@ -84,9 +68,14 @@ def dag_check_quality_normalize_data_before():
         bash_command=f'{os.path.join(SPARK_HOME, "bin", "spark-submit")} --master spark://spark-master:7077 {os.path.join(HOME, "dags", "check_quality_data", "check_quality_normalize_data_before.py")}',
     )
 
+    trigger_next = TriggerDagRunOperator(
+        task_id="trigger_load_data_minio_postgres_dag",
+        trigger_dag_id="dag_load_data_minio_postgres",  # name of your next dag
+    )
+
     files = check_new_files()
     ensure_bucket = ensure_cleaned_bucket_exists()
     files >> ensure_bucket >> process_data
-    process_data >> move_files_to_archived(files)
+    process_data >> move_files_to_archived(files) >> trigger_next
 
 dag = dag_check_quality_normalize_data_before()
