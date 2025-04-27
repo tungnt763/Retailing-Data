@@ -7,4 +7,4 @@ test_data.ipynb
 /logs/
 .ipynb_checkpoints/
 .env
-/data/
+/dags/data/
