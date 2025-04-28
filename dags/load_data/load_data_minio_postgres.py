@@ -7,6 +7,9 @@ from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.types import StringType
 from pyspark.sql.functions import lit
 
+from pyspark.errors import AnalysisException  # Dành cho Spark >= 3.3
+# Nếu bạn dùng Spark < 3.3 thì phải import: from pyspark.sql.utils import AnalysisException
+
 # ----- 1. ENVIRONMENT SETUP -----
 MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000')
 MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minio')
@@ -20,7 +23,7 @@ PG_USER = os.getenv("PG_USER", "postgres")
 PG_PWD = os.getenv("PG_PASSWORD", "postgres")
 
 RUN_ID = os.getenv("RUN_ID", "manual")
-TASK_ID = os.getenv("TASK_ID", "manual_task")  # Lấy từ Airflow context nếu có
+TASK_ID = os.getenv("TASK_ID", "manual_task")
 
 HOME = os.getenv("AIRFLOW_HOME", "/opt/airflow")
 metadata_path = os.path.join(HOME, "config", "metadata.json")
@@ -72,13 +75,20 @@ pg_schema = metadata['layers'][0]['short_name']
 for tbl in metadata["tables"]:
     file_prefix = tbl['file_name']
     table_name = tbl['table_name']
-
     pattern = f"s3a://{MINIO_CLEAN_BUCKET}/{file_prefix}_*/"
     print(f"🔎 Loading pattern: {pattern}")
     try:
-        df = spark.read.option("header", "true").csv(pattern)
+        try:
+            df = spark.read.option("header", "true").csv(pattern)
+        except AnalysisException as ae:
+            print(f"⚠️ No files found for pattern {pattern}. Skipping table '{table_name}'.")
+            continue
+        except Exception as e:
+            print(f"❌ Unexpected error reading files for pattern {pattern}:\n{traceback.format_exc()}")
+            sys.exit(1)
+
         if df.rdd.isEmpty():
-            print(f"No data found for {file_prefix}, skipping...")
+            print(f"⚠️ No data in any files for {file_prefix}, skipping...")
             continue
 
         # Đọc audit để kiểm tra batch đã load chưa
@@ -128,12 +138,10 @@ for tbl in metadata["tables"]:
                 "load_type": "append"
             }
             try:
-                # Cast all columns to string
                 batch_df_str = cast_all_columns_to_string(batch_df)
                 record_count = batch_df_str.count()
                 log["record_count"] = record_count
 
-                # Bổ sung các cột kiểm soát (control/monitor)
                 batch_df_str = (
                     batch_df_str
                     .withColumn("created_at", lit(created_at))
@@ -168,7 +176,7 @@ for tbl in metadata["tables"]:
                 else:
                     print(f"✅ Successfully loaded {batch} to {table_name}.")
     except Exception as e:
-        print(f"❌ Error loading pattern {pattern}:\n", traceback.format_exc())
+        print(f"❌ Error loading pattern {pattern}:\n{traceback.format_exc()}")
         sys.exit(1)
 
 spark.stop()

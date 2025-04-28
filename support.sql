@@ -4,3 +4,4 @@ DROP TABLE stg.employees;
 DROP TABLE stg.products;
 DROP TABLE stg.stores;
 DROP TABLE stg.transactions;
+DROP TABLE stg.weather;

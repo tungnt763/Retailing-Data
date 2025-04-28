@@ -90,7 +90,7 @@
       {
         "file_name": "discounts",
         "table_name": "discounts",
-        "primary_key": ["disc_id"],
+        "primary_key": ["disc_start_date", "disc_cat", "disc_sub_cat"],
         "fields": {
           "disc_start_date": {
             "column_name": "Start",
@@ -276,6 +276,23 @@
             "max": 180,
             "example": -74.006
           }
+        }
+      },
+      {
+        "file_name": "weather",
+        "table_name": "weather",
+        "primary_key": ["weather_date", "latitude", "longitude"],
+        "fields": {
+          "weather_date": { "column_name": "Weather Date", "type": "date", "not_null": true },
+          "city": { "column_name": "City", "type": "string", "not_null": false },
+          "country": { "column_name": "Country", "type": "string", "not_null": false },
+          "latitude": { "column_name": "Latitude", "type": "float", "not_null": false },
+          "longitude": { "column_name": "Longitude", "type": "float", "not_null": false },
+          "temperature_avg": { "column_name": "Avg Temperature", "type": "float", "not_null": false },
+          "precipitation": { "column_name": "Precipitation", "type": "float", "not_null": false },
+          "rain": { "column_name": "Rain", "type": "float", "not_null": false },
+          "showers": { "column_name": "Showers", "type": "float", "not_null": false },
+          "snowfall": { "column_name": "Snowfall", "type": "float", "not_null": false }
         }
       },
       {
