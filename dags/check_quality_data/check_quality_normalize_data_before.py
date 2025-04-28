@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from pyspark.errors import AnalysisException  # Dành cho Spark >= 3.3
 from datetime import datetime
 from pyspark.sql import SparkSession, functions as F, types as T
 
@@ -109,7 +110,15 @@ if __name__ == "__main__":
     for tbl in metadata["tables"]:
         file_pattern = f"{tbl['file_name']}_*.csv"
         try:
-            df = spark.read.option("header", "true").csv(minio_csv_pattern(MINIO_BUCKET, file_pattern))
+            try:
+                df = spark.read.option("header", "true").csv(minio_csv_pattern(MINIO_BUCKET, file_pattern))
+            except AnalysisException as ae:
+                print(f"⚠️ No files found for pattern {file_pattern}. Skipping table '{tbl['file_name']}'.")
+                continue
+            except Exception as e:
+                print(f"❌ Unexpected error reading files for pattern {file_pattern}:\n{traceback.format_exc()}")
+                sys.exit(1)
+
             if df.rdd.isEmpty():
                 print(f"No files matching {file_pattern} found.")
                 continue

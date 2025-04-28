@@ -32,7 +32,8 @@ def dag_extract_data():
         filepath='*.csv',
         poke_interval=60,
         timeout=300,
-        mode='poke'
+        mode='reschedule',
+        soft_fail=True
     )
 
     # Task to process the file
