@@ -37,17 +37,15 @@ def upload_to_minio(file_path, bucket_name, key=None):
     if key is None:
         key = os.path.basename(file_path)
 
-    minio_client = Minio(
-        os.getenv('MINIO_ENDPOINT', 'minio:9000'),   # Use 'localhost:9000' or correct Docker hostname
-        access_key=os.getenv('MINIO_ACCESS_KEY', 'minio'),
-        secret_key=os.getenv('MINIO_SECRET_KEY', 'minio123'),
-        secure=False
-    )
+    minio_client = create_minio_client()
+
     found = minio_client.bucket_exists(bucket_name)
     if not found:
         minio_client.make_bucket(bucket_name)
+
     minio_client.fput_object(bucket_name, key, file_path)
-    print(f"Uploaded {file_path} to bucket {bucket_name} as key {key}")
+    
+    print(f"--- Uploaded {file_path} to bucket {bucket_name} as key {key} ---")
 
 def create_minio_client():
     """
@@ -87,3 +85,21 @@ def read_metadata():
     with open(metadata_path, 'r') as f:
         return json.load(f)
 
+def get_table_names():
+    import os
+    import json
+
+    HOME = os.getenv("AIRFLOW_HOME", "/opt/airflow")
+    table_metadata_path = os.path.join(HOME, "config", "table_metadata.json")
+
+    if not os.path.exists(table_metadata_path):
+        raise FileNotFoundError(f"Table metadata file not found at {table_metadata_path}")
+
+    with open(table_metadata_path, 'r') as f:
+        table_metadata = json.load(f)
+
+    table_names = []
+    for table_name in table_metadata:
+        table_names.append(table_name)
+    
+    return table_names

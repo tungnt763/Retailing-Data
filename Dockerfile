@@ -2,11 +2,13 @@ FROM --platform=linux/amd64 apache/airflow:2.8.0
 
 USER root
 
+# Cài đặt hệ thống và Java
 RUN apt-get update --allow-releaseinfo-change && \
     apt-get install -y openjdk-17-jdk wget curl tzdata python3 python3-distutils python3-venv python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Thiết lập biến môi trường cho Spark và Python
 ENV PYSPARK_PYTHON=/usr/bin/python3
 ENV PYSPARK_DRIVER_PYTHON=/usr/bin/python3
 
@@ -18,26 +20,26 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
     mv /opt/spark-${SPARK_VERSION}-bin-hadoop3 $SPARK_HOME && \
     rm spark-${SPARK_VERSION}-bin-hadoop3.tgz
 
-RUN pip3 install --break-system-packages requests psycopg2-binary
-RUN /usr/bin/python3 -m pip install requests psycopg2-binary --break-system-packages
-
-# Thêm thư viện S3 cho Spark
+# Thêm thư viện S3 và JDBC driver cho Spark
 RUN wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.1/hadoop-aws-3.3.1.jar -P /opt/spark/jars/ && \
-    wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.1026/aws-java-sdk-bundle-1.11.1026.jar -P /opt/spark/jars/
+    wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.1026/aws-java-sdk-bundle-1.11.1026.jar -P /opt/spark/jars/ && \
+    wget https://jdbc.postgresql.org/download/postgresql-42.2.23.jar -P /opt/spark/jars/
 
-RUN wget https://jdbc.postgresql.org/download/postgresql-42.2.23.jar -P /opt/spark/jars/
 
-
+# Cập nhật biến môi trường
 ENV PATH="${SPARK_HOME}/bin:${PATH}"
 ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+ENV PYTHONPATH="${PYTHONPATH}:/opt/airflow"
 
 USER airflow
 
-# Cài các thư viện Python cần thiết
-RUN pip install --upgrade pip && \
-    pip install minio ccxt==4.1.100 \
-        apache-airflow-providers-mongo==3.5.0 \
-        airflow-provider-great-expectations==0.2.7 \
-        pyspark==3.5.5 \
-        apache-airflow-providers-apache-spark  \
-        psycopg2-binary
+ENV MINIO_ACCESS_KEY='minio'
+ENV MINIO_SECRET_KEY='minio123'
+ENV MINIO_ENDPOINT='minio:9000'
+ENV MINIO_BUCKET_RAW='raw'
+
+COPY ./.env /opt/airflow/.env
+COPY ./requirements.txt /opt/airflow/requirements.txt
+
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r /opt/airflow/requirements.txt
